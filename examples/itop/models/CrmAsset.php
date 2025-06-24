@@ -1,5 +1,7 @@
 <?php
 
+namespace examples\itop\models;
+
 use QueryOrm\Accessors;
 use QueryOrm\StatusEnum;
 

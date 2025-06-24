@@ -1,5 +1,6 @@
 <?php
 
+namespace examples\customQuery;
 class CustomQueryExecutor implements \QueryOrm\OrmQueryExecutor
 {
 

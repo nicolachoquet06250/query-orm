@@ -1,8 +1,10 @@
 <?php
 
-use QueryOrm\itop\ItopModel;
+namespace examples\itop\models;
+
 use QueryOrm\BinaryEnum;
 use QueryOrm\CriticityEnum;
+use QueryOrm\itop\ItopModel;
 
 class FunctionalCI extends ItopModel
 {
@@ -10,7 +12,7 @@ class FunctionalCI extends ItopModel
         get => 'CI';
     }
 
-    public function  __construct(
+    public function __construct(
         protected(set) int $id,
         protected(set) ?string $name = null,
         protected(set) ?string $description = null,
@@ -37,5 +39,6 @@ class FunctionalCI extends ItopModel
         protected(set) ?string $org_id_friendlyname = null,
         protected(set) ?string $org_id_obsolescence_flag = null,
     )
-    {}
+    {
+    }
 }

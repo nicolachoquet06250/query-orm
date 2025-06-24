@@ -1,5 +1,7 @@
 <?php
 
+namespace examples\salesforce\models;
+
 use QueryOrm\Accessors;
 use QueryOrm\salesforce\SalesforceModel;
 
