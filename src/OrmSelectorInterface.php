@@ -9,25 +9,23 @@ interface OrmSelectorInterface
         string ...$fields
     );
 
-//	public function from($model): static;
-
 	public function where(
 		string $property,
 		?OrmOperator $operator = null,
 		?string $value = null
-	): static|LikeInterface;
+	): static|LikeInterface|InInterface;
 
 	public function andWhere(
 		string $property,
 		?OrmOperator $operator = null,
 		?string $value = null
-	): static|LikeInterface;
+	): static|LikeInterface|InInterface;
 
 	public function orWhere(
 		string $property,
 		?OrmOperator $operator = null,
 		?string $value = null
-	): static|LikeInterface;
+	): static|LikeInterface|InInterface;
 
 	public function __invoke(string $operationType, ...$args): static;
 }

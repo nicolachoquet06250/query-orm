@@ -6,10 +6,14 @@ use QueryOrm\OrmBaseInterface;
 
 class SalesforceOrm implements OrmBaseInterface
 {
-	public function select(string ...$fields): SalesforceModelSelector
+    protected array $fields = [] {
+        get => array_map(fn(string $field) => ucfirst($field), $this->fields);
+        set => $this->fields = $value;
+    }
+
+    public function select(string ...$fields): SalesforceModelSelector
 	{
-		var_dump(get_class($this));
-		// TODO: Implement select() method.
-		return new SalesforceModelSelector(...$fields);
+        $this->fields = $fields;
+		return new SalesforceModelSelector(...$this->fields);
 	}
 }

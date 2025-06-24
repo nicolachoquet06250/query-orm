@@ -1,6 +1,7 @@
 <?php
 
 use QueryOrm\ModelSelectorInterface;
+use QueryOrm\OrmQueryExecutor;
 use QueryOrm\Query;
 use QueryOrm\Runner;
 
@@ -35,8 +36,8 @@ class CustomModelSelector implements ModelSelectorInterface, Query, Runner
 		return "SELECT " . implode(", ", $this->fields) . " FROM " . $this->model->table;
 	}
 
-	public function execute()
-	{
-		// TODO: Implement execute() method.
+	public function build(): OrmQueryExecutor
+    {
+        return new CustomQueryExecutor($this->getQl());
 	}
 }

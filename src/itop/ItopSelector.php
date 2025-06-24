@@ -2,7 +2,7 @@
 
 namespace QueryOrm\itop;
 
-use QueryOrm\Model;
+use QueryOrm\ExpressionCalculator;
 use QueryOrm\OrmOperator;
 use QueryOrm\OrmSelectorInterface;
 use QueryOrm\Query;
@@ -11,11 +11,11 @@ use ReflectionClass;
 use ReflectionException;
 use ReflectionObject;
 
-class ItopSelector implements OrmSelectorInterface, Query, Runner
+class ItopSelector extends ExpressionCalculator implements OrmSelectorInterface, Query, Runner
 {
 	/** @var string[] $fields */
 	private array $fields;
-    private array $joinedModels = [];
+    protected array $joinedModels = [];
     private array $where = [];
 
 	public function __construct(
@@ -32,28 +32,35 @@ class ItopSelector implements OrmSelectorInterface, Query, Runner
         return $this;
     }
 
-	public function where(string $property, ?OrmOperator $operator = null, ?string $value = null): static|ItopLike
+	public function where(string $property, ?OrmOperator $operator = null, ?string $value = null): static|ItopLike|ItopIn
 	{
         $this->where[] = [
             'property' => $property
         ];
+
 		if (($operator === OrmOperator::LIKE || $operator === OrmOperator::NOT_LIKE || empty($operator)) && empty($value)) {
 			return new ItopLike($this);
 		}
+        if (($operator === OrmOperator::IN || $operator === OrmOperator::NOT_IN || empty($operator)) && empty($value)) {
+            return new ItopIn($this);
+        }
         $this->where[array_key_last($this->where)]['operator'] = $operator;
         $this->where[array_key_last($this->where)]['value'] = $value;
 
 		return $this;
 	}
 
-	public function andWhere(string $property, ?OrmOperator $operator = null, mixed $value = null): static|ItopLike
+	public function andWhere(string $property, ?OrmOperator $operator = null, mixed $value = null): static|ItopLike|ItopIn
 	{
         $this->where[] = [
             'previousLogicOperator' => 'AND',
             'property' => $property
         ];
-		if (($operator === OrmOperator::LIKE || $operator === OrmOperator::NOT_LIKE || empty($operator)) && empty($value)) {
+		if ((($operator === OrmOperator::LIKE || $operator === OrmOperator::NOT_LIKE || empty($operator))) && empty($value)) {
 			return new ItopLike($this);
+		}
+		if (($operator === OrmOperator::IN || $operator === OrmOperator::NOT_IN) && empty($value)) {
+			return new ItopIn($this);
 		}
         $this->where[array_key_last($this->where)]['operator'] = $operator;
         $this->where[array_key_last($this->where)]['value'] = $value;
@@ -61,7 +68,7 @@ class ItopSelector implements OrmSelectorInterface, Query, Runner
 		return $this;
 	}
 
-	public function orWhere(string $property, ?OrmOperator $operator = null, ?string $value = null): static|ItopLike
+	public function orWhere(string $property, ?OrmOperator $operator = null, ?string $value = null): static|ItopLike|ItopIn
 	{
         $this->where[] = [
             'previousLogicOperator' => 'OR',
@@ -70,6 +77,9 @@ class ItopSelector implements OrmSelectorInterface, Query, Runner
 		if (($operator === OrmOperator::LIKE || $operator === OrmOperator::NOT_LIKE || empty($operator)) && empty($value)) {
 			return new ItopLike($this);
 		}
+        if (($operator === OrmOperator::IN || $operator === OrmOperator::NOT_IN || empty($operator)) && empty($value)) {
+            return new ItopIn($this);
+        }
         $this->where[array_key_last($this->where)]['operator'] = $operator;
         $this->where[array_key_last($this->where)]['value'] = $value;
 
@@ -83,87 +93,6 @@ class ItopSelector implements OrmSelectorInterface, Query, Runner
 
 		return $this;
 	}
-
-    private function calculOneExpression(string $expression): string
-    {
-        $r = new ReflectionClass($this->model);
-        $model = $r->newInstanceWithoutConstructor();
-
-        $baseTable = $model->table;
-        $baseAlias = $model->alias;
-
-        if (!preg_match('/(?<model>([a-zA-Z\\\\]*\\\\)?[A-Z][a-zA-Z0-9]*)::[$]?(?<property>[a-z0-1_]*)/', $expression, $matches)) return $expression;
-
-        [
-            'model' => $model,
-            'property' => $property
-        ] = $matches;
-
-        if ($model === $this->model || in_array($model, array_keys($this->joinedModels))) {
-            $r = new ReflectionClass($model);
-            $m = $r->newInstanceWithoutConstructor();
-
-            $expression = str_replace($baseTable, $baseAlias, $expression);
-
-            $expression = str_replace($model, $m->alias, $expression);
-            $expression = str_replace("\${$property}", $property, $expression);
-
-            $expression = str_replace("::", ".", $expression);
-        }
-
-        return $expression;
-    }
-
-    private function calculEquation(string $expression): string
-    {
-        $r = new ReflectionClass($this->model);
-        $model = $r->newInstanceWithoutConstructor();
-
-        $baseTable = $model->table;
-        $baseAlias = $model->alias;
-
-        preg_match('/^((?<model1>([a-zA-Z\\\\]*\\\\)?[A-Z][a-zA-Z0-9]*)::)?[$]?(?<property1>[a-z0-1_]*) ?(?<operator>=|!=|<|>|<=|>=) ?((?<model2>([a-zA-Z\\\\]*\\\\)?[A-Z][a-zA-Z0-9]*)::)?[$]?(?<property2>[a-z0-1_]*)$/', $expression, $matches);
-
-        [
-            'model1' => $model1,
-            'property1' => $property1,
-            'model2' => $model2,
-            'property2' => $property2
-        ] = [
-            'model1' => $matches['model1'] ?? '',
-            'model2' => $matches['model2'] ?? '',
-            'property1' => $matches['property1'] ?? '',
-            'property2' => $matches['property2'] ?? ''
-        ];
-
-        if ($model1 === $this->model || in_array($model1, array_keys($this->joinedModels))) {
-            $r = new ReflectionClass($model1);
-            $m = $r->newInstanceWithoutConstructor();
-
-            $expression = str_replace($baseTable, $baseAlias, $expression);
-
-            $expression = str_replace($model1, $m->alias, $expression);
-            $expression = str_replace("\${$property1}", $property1, $expression);
-        }
-
-        if ($model2 === $this->model || in_array($model2, array_keys($this->joinedModels))) {
-            $r = new ReflectionClass($model2);
-            $m = $r->newInstanceWithoutConstructor();
-
-            $expression = str_replace($model2, $m->alias, $expression);
-            $expression = str_replace("\${$property2}", $property2, $expression);
-        }
-
-        if (!$model1) {
-            $expression = str_replace($property1, "{$baseAlias}.{$property1}", $expression);
-        }
-
-        if (!$model2) {
-            $expression = str_replace($property2, "{$baseAlias}.{$property2}", $expression);
-        }
-
-        return str_replace("::", ".", $expression);
-    }
 
     /**
      * @throws ReflectionException
@@ -189,34 +118,6 @@ class ItopSelector implements OrmSelectorInterface, Query, Runner
             }
             $query .= "FROM {$baseTable} AS {$baseAlias} JOIN ";
             foreach ($this->joinedModels as $model => $on) {
-                /*preg_match('/^(?<model1>([a-zA-Z\\\\]*\\\\)?[A-Z][a-zA-Z0-9]*)::[$]?(?<property1>[a-z0-1_]*) ?(?<operator>=|!=|<|>|<=|>=) ?(?<model2>([a-zA-Z\\\\]*\\\\)?[A-Z][a-zA-Z0-9]*)::[$]?(?<property2>[a-z0-1_]*)$/', $on, $matches);
-                [
-                    'model1' => $model1,
-                    'property1' => $property1,
-                    'model2' => $model2,
-                    'property2' => $property2
-                ] = $matches;
-
-                if ($model1 === $this->model || in_array($model1, array_keys($this->joinedModels))) {
-                    $r = new ReflectionClass($model1);
-                    $m = $r->newInstanceWithoutConstructor();
-
-                    $on = str_replace($baseTable, $baseAlias, $on);
-
-                    $on = str_replace($model1, $m->alias, $on);
-                    $on = str_replace("\${$property1}", $property1, $on);
-                }
-
-                if ($model2 === $this->model || in_array($model2, array_keys($this->joinedModels))) {
-                    $r = new ReflectionClass($model2);
-                    $m = $r->newInstanceWithoutConstructor();
-
-                    $on = str_replace($model2, $m->alias, $on);
-                    $on = str_replace("\${$property2}", $property2, $on);
-                }
-
-                $on = str_replace("::", ".", $on);*/
-
                 $on = $this->calculEquation($on);
 
                 $r = new ReflectionClass($model);
@@ -239,22 +140,56 @@ class ItopSelector implements OrmSelectorInterface, Query, Runner
             if (isset($where['previousLogicOperator'])) {
                 $query .= " {$where['previousLogicOperator']}";
             }
-            $where['property'] = $this->calculOneExpression($where['property']);
+
+            $where['property'] = $this->calculExpression($where['property']);
+
             $isEnumValue = is_object($where['value']) && new ReflectionObject($where['value'])->isEnum();
+
             $where['operator'] = is_string($where['operator']) ? strtoupper($where['operator']) : $where['operator']->value;
-            $expressionStart = $this->calculEquation("{$where['property']} {$where['operator']} ");
-            $expression = $expressionStart . (str_contains($where['operator'], 'LIKE') || $isEnumValue
-                    ? "'{$where['value']->value}'"
-                    : (str_contains($where['operator'], 'LIKE')
-                        ? "'{$where['value']}'" : $where['value']));
+
+            if (is_string($where['value']) || str_contains($where['operator'], 'LIKE')) {
+                $where['value'] = "'{$where['value']}'";
+            }
+            else if ($isEnumValue) {
+                $where['value'] = "'{$where['value']->value}'";
+            }
+            else if (str_contains($where['operator'], 'IN')) {
+                $where['value'] = "(".implode(',',
+                        array_map(static fn($v) =>
+                        is_string($v)
+                            ? (str_starts_with($v, 'SELECT ')
+                                ? str_replace('WHERE', '_WHERE_', $v)
+                                : "'{$v}'")
+                            : $v, $where['value'])).")";
+            }
+            $expression = "{$where['property']} {$where['operator']} {$where['value']}";
             $query .= " {$expression}";
         }
 
-        return $query;
+        $_query = explode('WHERE ', $query);
+
+        $p1 = $_query[0];
+        $p2 = $_query[1];
+
+        $ps = explode(' AND ', $p2);
+        $q = [];
+        foreach ($ps as $p) {
+            if (str_contains($p, ' OR ')) {
+                $q[] = "({$p})";
+            }
+            else {
+                $q[] = $p;
+            }
+        }
+
+        return str_replace('_WHERE_', 'WHERE', "{$p1}WHERE " . implode(' AND ', $q));
 	}
 
-	public function execute()
-	{
-		var_dump($this->getQl());
+    /**
+     * @throws ReflectionException
+     */
+    public function build(): ItopQueryExecutor
+    {
+        return new ItopQueryExecutor($this->getQl());
 	}
 }

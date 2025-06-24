@@ -4,5 +4,5 @@ namespace QueryOrm;
 
 interface Runner
 {
-	public function execute();
+	public function build(): OrmQueryExecutor;
 }

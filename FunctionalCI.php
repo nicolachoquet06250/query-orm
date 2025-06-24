@@ -10,7 +10,7 @@ class FunctionalCI extends ItopModel
         get => 'CI';
     }
 
-    public function __construct(
+    public function  __construct(
         protected(set) int $id,
         protected(set) ?string $name = null,
         protected(set) ?string $description = null,

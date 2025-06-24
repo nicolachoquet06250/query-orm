@@ -29,6 +29,6 @@ class SalesforceModelSelector implements ModelSelectorInterface
 	public function from($model): SalesforceSelector
 	{
 		$this->model = $model;
-		return new SalesforceSelector(...$this->fields);
+		return new SalesforceSelector($this->model, ...$this->fields);
 	}
 }
